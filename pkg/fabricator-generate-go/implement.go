@@ -8,9 +8,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
+	"strings"
 
 	"code.cestus.io/libs/codegenerator/pkg/templating"
+	"gopkg.in/yaml.v3"
 
 	"code.cestus.io/libs/buildinfo"
 	"code.cestus.io/tools/fabricator/pkg/fabricator"
@@ -20,6 +23,25 @@ import (
 // ensure it implements Generator
 var _ Generator = (*plugin)(nil)
 
+// GeneratorSet is a set of generators
+type GeneratorSet []string
+
+//Add adds a element to the set if it does not exist yet
+func (g *GeneratorSet) Add(add string) {
+	if _, found := g.Find(add); !found {
+		*g = append(*g, add)
+	}
+}
+
+func (g *GeneratorSet) Find(val string) (int, bool) {
+	for i, item := range *g {
+		if item == val {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
 type plugin struct {
 	pluginConfig PluginConfig
 	root         string
@@ -27,6 +49,7 @@ type plugin struct {
 
 	pack         templating.Pack
 	packprovider templating.PackProvider
+	generators   GeneratorSet
 }
 
 func (p *plugin) Root() string {
@@ -45,8 +68,30 @@ type GenerationContext struct {
 	ReplaceDependencies ReplaceDependencies
 	ToolDependencies    ToolDependencies
 	// endregion
+	Generators GeneratorSet
 }
 
+func (p *plugin) LoadGeneratorSet(r io.Reader) error {
+	conf := fabricator.FabricatorConfig{}
+	var err error
+	if err = yaml.NewDecoder(r).Decode(&conf); err != nil {
+		return fmt.Errorf("failed to decode conf %s", err)
+	}
+	for _, c := range conf.Components {
+		p.generators.Add(strings.ReplaceAll(c.Generator, "-", " "))
+	}
+
+	return err
+}
+func (p *plugin) runBootstrap(ctx context.Context, io fabricator.IOStreams) {
+	executor := helpers.NewExecutor(p.Root(), io)
+	for _, g := range p.generators {
+		exec := strings.Split(g, " ")
+		if err := executor.Run(ctx, exec[0], exec[1:]...); err != nil {
+			fmt.Fprintf(io.ErrOut, "Failed execution of %s: %s", exec, err)
+		}
+	}
+}
 func (p *plugin) generationContexts(ctx context.Context, io fabricator.IOStreams) ([]GenerationContext, error) {
 	var contexts []GenerationContext
 	for _, component := range p.pluginConfig.Components {
@@ -57,6 +102,7 @@ func (p *plugin) generationContexts(ctx context.Context, io fabricator.IOStreams
 			PinDependencies:     DefaultPins,
 			ReplaceDependencies: DefaultReplacements,
 			ToolDependencies:    DefaultToolDependencies,
+			Generators:          p.generators,
 		}
 		// override defaults if necessary
 		for k, o := range component.Spec.PinDependency {

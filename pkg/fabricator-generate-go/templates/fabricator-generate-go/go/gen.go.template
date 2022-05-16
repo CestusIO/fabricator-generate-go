@@ -1,0 +1,9 @@
+!!no-go-generate
+{{ CodeSectionFileHeader | ToGoComment }}
+package {{.PluginComponent.Spec.PackageName | ToGoPackageName}}
+
+// region CODE_REGION(GEN)
+{{ range $i, $value := .Generators -}}
+//go:generate {{$value}}
+{{ end -}}
+// endregion
