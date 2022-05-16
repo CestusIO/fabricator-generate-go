@@ -26,7 +26,7 @@ type options struct {
 	fabricator.RootOptions
 	fabricator.IOStreams
 	// endregion
-	Add bool // SampleFlag
+	Bootstrap bool // Runs in bootstrap mode
 }
 
 // newOptions returns initialized options
@@ -84,7 +84,16 @@ func (o *options) run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	c, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	plugin.LoadGeneratorSet(c)
 
+	if o.Bootstrap {
+		plugin.runBootstrap(ctx, o.IOStreams)
+	}
 	err = plugin.Generate(ctx, o.IOStreams)
 	if err != nil {
 		return err
@@ -103,7 +112,7 @@ func NewFabricatorGenerateGo(ioStreams fabricator.IOStreams, flagparser fabricat
 		Example: "",
 	}
 	o := newOptions(ioStreams, cmd.Flags(), flagparser)
-	cmd.Flags().BoolVar(&o.Add, "add", o.Add, "Add is a sampleflag")
+	cmd.Flags().BoolVar(&o.Bootstrap, "bootstrap", o.Bootstrap, "Run bootrap code")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		if err := o.complete(cmd); err != nil {
 			return err

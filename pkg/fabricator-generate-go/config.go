@@ -38,7 +38,7 @@ type Spec struct {
 	ReplaceDependency ReplaceDependencies `yaml:"replaceDependency,omitempty" json:"replaceDependency,omitempty"`
 	ToolDependency    ToolDependencies    `yaml:"toolDependency,omitempty" json:"toolDependency,omitempty"`
 
-	ExampleValue string `yaml:"exampleValue" json:"exampleValue"`
+	PackageName string `yaml:"packageName" json:"packageName"`
 }
 
 // region CODE_REGION(PLUGIN_COMPONENT)

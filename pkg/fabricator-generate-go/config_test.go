@@ -29,6 +29,7 @@ var _ = Describe("Config", func() {
 						PinDependency:     nil,
 						ReplaceDependency: nil,
 						ToolDependency:    nil,
+						PackageName:       "fabricator-generate-go",
 					},
 				},
 			},
